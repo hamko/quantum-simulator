@@ -1,10 +1,4 @@
-// TODO RY を作る
-// TODO 1 なんちゃって CCX の実装。これは RY と CX だけで割と簡単に行ける。
-// TODO 2 なんちゃって CCX を dijkstra の探索に入れる (まず量子加算器スコアリングチャレンジの再現)
-// TODO RX, RY, RZ (pi/8) を dijkstra の探索に入れて CCX を抜いたり抜かなかったりする (一旦は RY だけでいいのかも)
-// TODO なんちゃって CCX を除外しても最適解が出ることを確認
-// TODO 論理式がやたらでかい可能性を考えて、量子を一切使わない X, CX, CCX だけで構成可能な探索プログラムを作る。多分行列演算がなくなるから結構早くなる
-// TODO ねんのため CCX を実装しておいてマラソンで RX が使えない場合に備える
+// CCX ゲートのテンソル表記での分解方法 https://docs.quantum.ibm.com/api/qiskit/qiskit.circuit.library.CCXGate
 
 #include <bits/stdc++.h>
 #include <sys/time.h>
@@ -448,7 +442,6 @@ map<ll, ll> get_matching_ids(circuit_t c, gate_t circuitU = {}) {
             truth_table[i] = get_prob(psi_ret, i);
         }
         // 0 bit 目の答えが左として出力されるため注意。ほかの bitset などの表記では 0 bit 目が右として出力される
-        // cout << truth_table << endl; 
         rep(i, num_qubits) {
             result[i][bit] = truth_table[i];
             if (abs(abs(result[i][bit]) - 1.0) < EPS) {
@@ -459,8 +452,6 @@ map<ll, ll> get_matching_ids(circuit_t c, gate_t circuitU = {}) {
             }
         }
     }
-
-
     /*
     draw(c);
     rep(i, num_qubits) {
@@ -612,7 +603,8 @@ void test(void) {
         draw(multiply(circuitU, psi));
     }
 
-    // なんちゃって CCX ゲート が Toffoli と一致しない。。 TODO
+    // なんちゃって CCX ゲート が Toffoli と一致しない。。
+    // qiskit でも一致しないので、https://www.youtube.com/watch?v=UcgQXpFNubs が間違っているのだと思う
     {
         circuit_t c;
         c.push_back(vector<ll>({OP_RY, 2, 1}));
@@ -638,7 +630,6 @@ void test(void) {
         }
 //        exit(0);
     }
-    // 見つかった OR ゲートが OR じゃない。。
     {
         circuit_t c;
         c.push_back(vector<ll>({OP_X, 0, 1}));
@@ -665,11 +656,6 @@ void test(void) {
 
 }
 
-
-// OR が永遠に見つからない。。実は、X, Y, Z, CX だけで構成することはできない！(CCX か RX_{pi/8})が必要
-// OR は CX ゲート 2 個と CCX ゲート (CX ゲート 6 個汎用回転単一ゲート 9 個とか) 必要なのでそりゃそうか　
-// 「CCX のようなもの」でも CX ゲート 3, 単一ゲート 4
-// 真偽値だけ見るならあんまり Y, Z を使う必要ないし、なんなら量子でやる必要も無い気がしてきた…やっぱこういう量子の愚直計算による探索の本質は 45 度回転だよね。
 void search_truth_table(void) {
     circuit_t c_init;
     queue<circuit_t> q;
@@ -731,7 +717,6 @@ encoded_psi_t encode(vector<comp> psi) {
         ret.push_back(x.fi);
         ret.push_back(x.se);
     }
-//    cout << psi << " " << ret << "#encode" << endl;
     if (ret.size() == 0) {
         cout << "failed to encode " << psi << endl;
         exit(1);
@@ -739,9 +724,8 @@ encoded_psi_t encode(vector<comp> psi) {
     return ret;
 }
 
-// 一応全加算器 (4 qubits, 3 input, 2 output でも 14520000 で終了する（not found だけど。。）)
-// TODO AND が見つからないし、回路を手書きしてもなんちゃって Toffoli が AND にならない。。多分回路のレベルで間違ってるんだと思う。IBM と比較が必要。
-// 以下が NOT FOUND
+// 一応全加算器 (4 qubits, 3 input, 2 output でも 14520000 で終了する
+// NOT FOUND で終わるけど…（この遷移だけでは存在しないということなのだと思う）
 // 2 1 4
 // 0 0 | 0
 // 0 1 | 0
@@ -777,7 +761,6 @@ void dijkstra(void) {
         }
 
         if (counter % 5000 == 0) {
-            // TODO たまに state が空になるので、何かバグってる (もしくは本当に全部位相が 0 なのか？いやありえないはず。)
             cout << "cost " << cost_now << endl;
             cout << "state " << endl << state << endl;
             draw(c_now);
@@ -785,7 +768,6 @@ void dijkstra(void) {
 
 
         if (memo.count(state)) {
-//            cout << "skipped" << endl;
             continue;
         }
         memo[state] = mp(cost_now, c_now);
@@ -825,7 +807,7 @@ void dijkstra(void) {
                 }
             }
             rep(i, num_qubits) {
-//                if (prev_ry_pos != -1 && prev_ry_pos != i) continue; // 探索の方針として、RY は単一の qubit にしかおけないということにしている。
+                if (prev_ry_pos != -1 && prev_ry_pos != i) continue; // 探索の方針として、RY は単一の qubit にしかおけないということにしている。
                 if (c_now.size() && c_now.back()[0] == OP_RY && c_now.back()[1] == i) continue; // 2 連続で RY する意味はない
 
                 repi(rot, 1, 8) {
